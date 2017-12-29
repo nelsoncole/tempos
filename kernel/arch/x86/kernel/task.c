@@ -147,10 +147,15 @@ void setup_task(task_t *task, void (*start_routine)(void*))
 /**
  * Switch task
  */
+
+uint32_t current_esp; /*esta variável global pega o valor do stack seja ela do kernelspace ou do userspace */
+
+
 void switch_to(c_llist *tsk)
 {
 	task_t *task = GET_TASK(tsk);
 	task_t *current_task = GET_TASK(cur_task);
+   
 
 	if (current_task == NULL || task == NULL) {
 		return;
@@ -160,7 +165,8 @@ void switch_to(c_llist *tsk)
 	if (current_task->state == TASK_RUNNING) {
 		current_task->state = TASK_READY_TO_RUN;
 	}
-	arch_tss_cur_task = &current_task->arch_tss;
+	arch_tss_cur_task =&current_task->arch_tss;
+    current_esp = current_task->arch_tss.regs.esp;
 	cur_task = tsk;
 	task->state = TASK_RUNNING;
 	task_switch_to(&task->arch_tss);

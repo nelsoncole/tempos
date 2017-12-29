@@ -25,7 +25,7 @@
 #include <x86/x86.h>
 
 .global initial_task2, initial_task, task_switch_to
-.extern arch_tss_cur_task
+.extern arch_tss_cur_task, _current_esp
 
 /**
  * This is function should be used only once to
@@ -95,32 +95,67 @@ initial_task:
  * pop all registers context and call iret to jump to the new thread.
  */
 task_switch_to:
+
+
+/* 
+ * Nesta função não se prcisa em fazer muita coisa, apenas pegar os dados certos no ponteiro *arch_tss_cur_task
+ * e colocarmos nos registradores quando se vai fazer task switch 
+ *
+ * Não há necessidade de um teste de dados do kernel ou do usuário, ele devem ser tratados e sempre correspondente ao  *arch_tss_cur_task
+ *
+ *
+ * Antes do IRET nossa pilha deve ser configurada desta maneira.
+ *
+ *
+ *
+ *  ----------------
+ * |     ESP       |
+ *  ----------------
+ * |     SS        |
+ *  ----------------
+ * |     EFLAGS    |
+ *  ----------------
+ * |     CS        |
+ *  ----------------
+ * |     EIP       |
+ *  ----------------
+ * |     IRET      |
+ *  ----------------
+ *
+ *
+ *
+ */
 	cli
 
 	pushl %eax
+    pushl %ebx
 	movl arch_tss_cur_task, %eax
 	movl 10(%eax), %eax
-
-	pushl %ebx
 	movl 12(%esp), %eax
+
+    
 
 	/* Check if task it's kernel or user process */
 	movw (%eax), %bx
 	cmpw  $USER_DS_RPL, %bx
-	popl %ebx
+	
 	popl %eax
 
+    movl current_esp, %ebx    /* current_task->arch_tss.regs.esp    movl 6(%eax,4), %ebx*/
+
 	jne kernel_proc
+    
 	pushl $USER_DS_RPL /* SS  */
-	pushl %esp         /* ESP */
+	pushl %ebx         /* ESP */
 	pushl $USER_CS_RPL /* CS  */
 	jmp cs_cont
 kernel_proc:
 	pushl $KERNEL_DS   /* SS  */
-	pushl %esp         /* ESP */
+	pushl %ebx         /* ESP */
 	pushl $KERNEL_CS   /* CS  */
 cs_cont:
 
+    popl %ebx
 	pushl %eax 		/* save EAX in the stack */
 	
 	/* Move return address to top of stack */
